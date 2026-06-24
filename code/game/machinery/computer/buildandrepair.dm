@@ -2,7 +2,7 @@
 	name = "computer frame"
 	desc = "A frame for constructing your own computer. Or console. Whichever name you prefer."
 	icon_state = "0"
-	state = 0
+	state = FRAME_COMPUTER_STATE_EMPTY
 
 /obj/structure/frame/computer/Initialize(mapload)
 	. = ..()
@@ -11,13 +11,13 @@
 /obj/structure/frame/computer/attackby(obj/item/P, mob/living/user, params)
 	add_fingerprint(user)
 	switch(state)
-		if(0)
+		if(FRAME_COMPUTER_STATE_EMPTY)
 			if(P.tool_behaviour == TOOL_WRENCH)
 				to_chat(user, span_notice("You start wrenching the frame into place..."))
 				if(P.use_tool(src, user, 20, volume=50))
 					to_chat(user, span_notice("You wrench the frame into place."))
 					set_anchored(TRUE)
-					state = 1
+					state = FRAME_COMPUTER_STATE_EMPTY
 				return
 			if(P.tool_behaviour == TOOL_WELDER)
 				if(!P.tool_start_check(user, amount=0))
@@ -31,13 +31,13 @@
 						M.add_fingerprint(user)
 					qdel(src)
 				return
-		if(1)
+		if(FRAME_COMPUTER_STATE_BOARD_INSTALLED)
 			if(P.tool_behaviour == TOOL_WRENCH)
 				to_chat(user, span_notice("You start to unfasten the frame..."))
 				if(P.use_tool(src, user, 20, volume=50))
 					to_chat(user, span_notice("You unfasten the frame."))
 					set_anchored(FALSE)
-					state = 0
+					state = FRAME_STATE_BOARD_INSTALLED
 				return
 			if(istype(P, /obj/item/circuitboard/computer) && !circuit)
 				if(!user.transferItemToLoc(P, src))
@@ -55,23 +55,23 @@
 			if(P.tool_behaviour == TOOL_SCREWDRIVER && circuit)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You screw [circuit] into place."))
-				state = 2
+				state = FRAME_COMPUTER_STATE_BOARD_SECURED
 				icon_state = "2"
 				return
 			if(P.tool_behaviour == TOOL_CROWBAR && circuit)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You remove [circuit]."))
-				state = 1
+				state = FRAME_COMPUTER_STATE_EMPTY
 				icon_state = "0"
 				circuit.forceMove(drop_location())
 				circuit.add_fingerprint(user)
 				circuit = null
 				return
-		if(2)
+		if(FRAME_COMPUTER_STATE_BOARD_SECURED)
 			if(P.tool_behaviour == TOOL_SCREWDRIVER && circuit)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You unfasten the circuit board."))
-				state = 1
+				state = FRAME_COMPUTER_STATE_BOARD_INSTALLED
 				icon_state = "1"
 				return
 			if(istype(P, /obj/item/stack/cable_coil))
@@ -79,17 +79,17 @@
 					return
 				to_chat(user, span_notice("You start adding cables to the frame..."))
 				if(P.use_tool(src, user, 20, volume=50, amount=5))
-					if(state != 2)
+					if(state != FRAME_COMPUTER_STATE_BOARD_SECURED)
 						return
 					to_chat(user, span_notice("You add cables to the frame."))
-					state = 3
+					state = FRAME_COMPUTER_STATE_WIRED
 					icon_state = "3"
 				return
-		if(3)
+		if(FRAME_COMPUTER_STATE_WIRED)
 			if(P.tool_behaviour == TOOL_WIRECUTTER)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You remove the cables."))
-				state = 2
+				state = FRAME_COMPUTER_STATE_BOARD_SECURED
 				icon_state = "2"
 				var/obj/item/stack/cable_coil/A = new (drop_location(), 5)
 				if (!QDELETED(A))
@@ -102,17 +102,17 @@
 				playsound(src, 'sound/items/deconstruct.ogg', 50, TRUE)
 				to_chat(user, span_notice("You start to put in the glass panel..."))
 				if(P.use_tool(src, user, 20, amount=2))
-					if(state != 3)
+					if(state != FRAME_COMPUTER_STATE_WIRED)
 						return
 					to_chat(user, span_notice("You put in the glass panel."))
-					state = 4
+					state = FRAME_COMPUTER_STATE_GLASSED
 					src.icon_state = "4"
 				return
-		if(4)
+		if(FRAME_COMPUTER_STATE_GLASSED)
 			if(P.tool_behaviour == TOOL_CROWBAR)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You remove the glass panel."))
-				state = 3
+				state = FRAME_COMPUTER_STATE_WIRED
 				icon_state = "3"
 				var/obj/item/stack/sheet/glass/G = new(drop_location(), 2)
 				if (!QDELETED(G))
@@ -155,9 +155,9 @@
 
 /obj/structure/frame/computer/deconstruct(disassembled = TRUE)
 	if(!(flags_1 & NODECONSTRUCT_1))
-		if(state == 4)
+		if(state == FRAME_COMPUTER_STATE_GLASSED)
 			new /obj/item/shard(drop_location())
 			new /obj/item/shard(drop_location())
-		if(state >= 3)
+		if(state >= FRAME_COMPUTER_STATE_WIRED)
 			new /obj/item/stack/cable_coil(drop_location(), 5)
 	..()

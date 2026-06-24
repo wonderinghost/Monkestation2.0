@@ -61,6 +61,26 @@
 			inhand_icon_state = "rcl-0"
 	return ..()
 
+//you can use wires to heal robotics
+/obj/item/rwd/attack(mob/living/carbon/human/H, mob/user)
+	if(!istype(H))
+		return ..()
+	var/obj/item/bodypart/affecting = H.get_bodypart(check_zone(user.zone_selected))
+	if(affecting && IS_ROBOTIC_LIMB(affecting))
+		if(user == H)
+			user.visible_message(span_notice("[user] starts to fix some of the wires in [H]'s [affecting.name]."), span_notice("You start fixing some of the wires in [H == user ? "your" : "[H]'s"] [affecting.name]."))
+			if(!do_after(user, 5 SECONDS, H))
+				return
+		if(item_heal_robotic(H, user, 0, 15))
+			delta_cable(1, decrement = TRUE)
+		return
+	else
+		return ..()
+
+/obj/item/rwd/attack()
+
+
+
 /obj/item/rwd/attack_self_secondary(mob/user, modifiers)
 	if(current_amount <= 0)
 		balloon_alert(user, "nothing to dispense!")
@@ -86,7 +106,7 @@
 		delta_cable(consumed, decrement = TRUE)
 		amount_to_consume -= consumed
 
-	//spawn the cable. if it merged with the stak below then you pick that up else put it in the user's hand
+	//spawn the cable. if it merged with the stack below then you pick that up else put it in the user's hand
 	var/obj/item/stack/cable_coil/new_cable = new(user.drop_location(), amount)
 	if(QDELETED(new_cable))
 		balloon_alert(user, "merged with stack below!")
@@ -218,7 +238,7 @@
 
 	return TRUE
 
-/// extra safe modify just to be sure
+/// extra safe modify just to be sure // Decrement TRUE = remove amount
 /obj/item/rwd/proc/delta_cable(amount, decrement)
 	if(decrement)
 		current_amount -= amount

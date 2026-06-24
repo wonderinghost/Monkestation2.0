@@ -6,7 +6,8 @@
 	density = TRUE
 	max_integrity = 250
 	var/obj/item/circuitboard/machine/circuit = null
-	var/state = 1
+	///frame state in process of building machines
+	var/state = FRAME_STATE_EMPTY
 
 /obj/structure/frame/examine(user)
 	. = ..()
@@ -36,7 +37,7 @@
 
 /obj/structure/frame/machine/examine(user)
 	. = ..()
-	if(state != 3)
+	if(state != FRAME_STATE_BOARD_INSTALLED)
 		return
 
 	if(!length(req_components))
@@ -127,7 +128,7 @@
 	to_chat(user, span_notice("You add the circuit board to the frame."))
 	circuit = board
 	icon_state = "box_2"
-	state = 3
+	state = FRAME_STATE_BOARD_INSTALLED
 	components = list()
 	//add circuit board as the first component to the list of components
 	//required for part_replacer to locate it while exchanging parts so it does not early return in /obj/machinery/proc/exchange_parts
@@ -138,7 +139,7 @@
 
 /obj/structure/frame/machine/attackby(obj/item/P, mob/living/user, params)
 	switch(state)
-		if(1)
+		if(FRAME_STATE_EMPTY)
 			if(istype(P, /obj/item/circuitboard/machine))
 				to_chat(user, span_warning("The frame needs wiring first!"))
 				return
@@ -150,9 +151,9 @@
 					return
 
 				to_chat(user, span_notice("You start to add cables to the frame..."))
-				if(P.use_tool(src, user, 20, volume=50, amount=5))
+				if(P.use_tool(src, user, 2 SECONDS, volume=50, amount=5))
 					to_chat(user, span_notice("You add cables to the frame."))
-					state = 2
+					state = FRAME_STATE_WIRED // updates to wired frame
 					icon_state = "box_1"
 
 				return
@@ -160,7 +161,7 @@
 				user.visible_message(span_warning("[user] disassembles the frame."), \
 									span_notice("You start to disassemble the frame..."), span_hear("You hear banging and clanking."))
 				if(P.use_tool(src, user, 40, volume=50))
-					if(state == 1)
+					if(state == FRAME_STATE_EMPTY)
 						to_chat(user, span_notice("You disassemble the frame."))
 						var/obj/item/stack/sheet/iron/M = new (loc, 5)
 						if (!QDELETED(M))
@@ -174,12 +175,12 @@
 					return
 				to_chat(user, span_notice("You start [anchored ? "un" : ""]securing [src]..."))
 				if(P.use_tool(src, user, 40, volume=75))
-					if(state == 1)
+					if(state == FRAME_STATE_EMPTY)
 						to_chat(user, span_notice("You [anchored ? "un" : ""]secure [src]."))
 						set_anchored(!anchored)
 				return
 
-		if(2)
+		if(FRAME_STATE_WIRED)
 			if(P.tool_behaviour == TOOL_WRENCH)
 				to_chat(user, span_notice("You start [anchored ? "un" : ""]securing [src]..."))
 				if(P.use_tool(src, user, 40, volume=75))
@@ -224,15 +225,15 @@
 			if(P.tool_behaviour == TOOL_WIRECUTTER)
 				P.play_tool_sound(src)
 				to_chat(user, span_notice("You remove the cables."))
-				state = 1
+				state = FRAME_STATE_EMPTY /// degrades frame to empty
 				icon_state = "box_0"
 				new /obj/item/stack/cable_coil(drop_location(), 5)
 				return
 
-		if(3)
+		if(FRAME_STATE_BOARD_INSTALLED)
 			if(P.tool_behaviour == TOOL_CROWBAR)
 				P.play_tool_sound(src)
-				state = 2
+				state = FRAME_STATE_WIRED /// degrades frame to wired frame
 				circuit.forceMove(drop_location())
 				components.Remove(circuit)
 				//spawn stack components from the circuitboards requested components since they no longer exist inside components
@@ -400,7 +401,7 @@
 
 /obj/structure/frame/machine/deconstruct(disassembled = TRUE)
 	if(!(flags_1 & NODECONSTRUCT_1))
-		if(state >= 2)
+		if(state >= FRAME_STATE_BOARD_INSTALLED)
 			new /obj/item/stack/cable_coil(loc , 5)
 
 		dump_contents()
